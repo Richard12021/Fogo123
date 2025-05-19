@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Flame Runner - Fogo</title>
+  <style>
+    * { box-sizing: border-box; }
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+    canvas {
+      display: block;
+      margin: 0 auto;
+      background: #111;
+    }
+    #menu {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 36px;
+      z-index: 2;
+    }
+    #menu button {
+      margin-top: 20px;
+      font-size: 20px;
+      padding: 10px 20px;
+      cursor: pointer;
+    }
+    #textOverlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 60px;
+      z-index: 1;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="menu">
+    <div>🔥 Flame Runner: <strong>Fogo</strong> 🔥</div>
+    <button onclick="startGame()">Start Game</button>
+  </div>
+  <div id="textOverlay">Fogo</div>
+  <canvas id="gameCanvas" width="800" height="400"></canvas>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const menu = document.getElementById("menu");
+
+    let playerImg = new Image();
+    playerImg.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA..."; // Replace with base64 or hosted URL of your image
+
+    let flameImg = new Image();
+    flameImg.src = "https://i.imgur.com/8Q7bF4T.png"; // Simple flame sprite
+
+    let shootSound = new Audio("https://www.soundjay.com/button/sounds/button-16.mp3");
+    let hitSound = new Audio("https://www.soundjay.com/button/sounds/beep-07.mp3");
+
+    let player = { x: 100, y: 300, width: 60, height: 60, dy: 0, jumping: false };
+    let obstacles = [];
+    let projectiles = [];
+    let score = 0;
+    let gravity = 0.7;
+    let jumpStrength = -13;
+    let gameSpeed = 5;
+    let gameOver = false;
+
+    function spawnObstacle() {
+      obstacles.push({ x: canvas.width, y: 320, width: 40, height: 40 });
+    }
+
+    function update() {
+      if (gameOver) return;
+
+      player.dy += gravity;
+      player.y += player.dy;
+
+      if (player.y > 300) {
+        player.y = 300;
+        player.dy = 0;
+        player.jumping = false;
+      }
+
+      obstacles.forEach((obs, index) => {
+        obs.x -= gameSpeed;
+        if (obs.x + obs.width < 0) obstacles.splice(index, 1);
+      });
+
+      projectiles.forEach((proj, index) => {
+        proj.x += 10;
+        if (proj.x > canvas.width) projectiles.splice(index, 1);
+      });
+
+      obstacles.forEach((obs, oIndex) => {
+        if (
+          player.x < obs.x + obs.width &&
+          player.x + player.width > obs.x &&
+          player.y < obs.y + obs.height &&
+          player.y + player.height > obs.y
+        ) {
+          hitSound.play();
+          gameOver = true;
+          setTimeout(() => {
+            menu.style.display = "flex";
+            menu.querySelector("div").innerHTML = `Game Over! Score: ${score}`;
+            menu.querySelector("button").innerText = "Play Again";
+          }, 300);
+        }
+
+        projectiles.forEach((proj, pIndex) => {
+          if (
+            proj.x < obs.x + obs.width &&
+            proj.x + proj.width > obs.x &&
+            proj.y < obs.y + obs.height &&
+            proj.y + proj.height > obs.y
+          ) {
+            obstacles.splice(oIndex, 1);
+            projectiles.splice(pIndex, 1);
+            hitSound.play();
+          }
+        });
+      });
+
+      score++;
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Player
+      ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
+
+      // Obstacles
+      ctx.fillStyle = "#f00";
+      obstacles.forEach(obs => ctx.fillRect(obs.x, obs.y, obs.width, obs.height));
+
+      // Projectiles
+      projectiles.forEach(proj => {
+        ctx.drawImage(flameImg, proj.x, proj.y, proj.width, proj.height);
+      });
+
+      // Score
+      ctx.fillStyle = "#fff";
+      ctx.font = "20px Arial";
+      ctx.fillText("Score: " + score, 10, 30);
+    }
+
+    function gameLoop() {
+      update();
+      draw();
+      if (!gameOver) requestAnimationFrame(gameLoop);
+    }
+
+    function startGame() {
+      // Reset
+      player.y = 300;
+      player.dy = 0;
+      obstacles = [];
+      projectiles = [];
+      score = 0;
+      gameOver = false;
+      menu.style.display = "none";
+      setInterval(spawnObstacle, 1500);
+      gameLoop();
+    }
+
+    document.addEventListener("keydown", e => {
+      if ((e.code === "Space" || e.code === "ArrowUp") && !player.jumping) {
+        player.dy = jumpStrength;
+        player.jumping = true;
+      }
+    });
+
+    canvas.addEventListener("click", () => {
+      projectiles.push({ x: player.x + 40, y: player.y + 20, width: 20, height: 20 });
+      shootSound.play();
+    });
+
+    // Mobile support
+    window.addEventListener("touchstart", () => {
+      if (!player.jumping) {
+        player.dy = jumpStrength;
+        player.jumping = true;
+      } else {
+        projectiles.push({ x: player.x + 40, y: player.y + 20, width: 20, height: 20 });
+        shootSound.play();
+      }
+    });
+  </script>
+</body>
+</html>
